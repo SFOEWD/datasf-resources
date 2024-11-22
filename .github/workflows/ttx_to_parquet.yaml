@@ -1,0 +1,39 @@
+name: Download and Save Data as Parquet (DuckDB)
+
+on:
+  schedule:
+    - cron: "0 1 * * *" 
+  workflow_dispatch: # Allows manual triggering of the workflow
+
+jobs:
+  process-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install duckdb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y duckdb-cli
+
+      - name: Download ttx and write to parquet
+        run: |
+          DATA_URL="https://data.sfgov.org/resource/g8m3-pdis.json?$limit=9999999"
+          OUTPUT_FILE="data/ttx.parquet"
+
+          duckdb -c "copy (select certificate_number as ban, ownership_name, dba_name, cast(dba_start_date as date) as dba_start_date, cast(location_start_date as date) as location_start_date from read_json_auto('$DATA_URL')) TO '$OUTPUT_FILE' (FORMAT 'parquet');"
+
+          echo "Data saved to $OUTPUT_FILE"
+
+      - name: Configure
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit 
+        run: |
+          git add data/ttx.parquet
+          git commit -m "update ttx"
+          git push
